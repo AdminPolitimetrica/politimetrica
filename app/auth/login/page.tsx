@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useCurrentUser } from "@/lib/auth"
-import { loginWithEmail, signInWithGoogle } from "@/lib/auth-providers"
+import { loginWithEmail, signInWithGoogle, signInWithGoogleToken } from "@/lib/auth-providers"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -36,7 +36,33 @@ export default function LoginPage() {
     }
   }, [user, router, redirectPath])
 
-  // Modificar la función handleSubmit para redirigir a la página de suscripción después de iniciar sesión
+  // Escuchar mensajes desde Flutter WebView con tokens Google
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === "GOOGLE_TOKENS") {
+        const { idToken } = event.data
+        if (idToken) {
+          setGoogleLoading(true)
+          signInWithGoogleToken(idToken)
+            .then(() => {
+              router.push(redirectPath)
+            })
+            .catch((err) => {
+              console.error("Error autenticando con token recibido:", err)
+              setError("Error al autenticar con Google. Por favor intenta de nuevo.")
+            })
+            .finally(() => {
+              setGoogleLoading(false)
+            })
+        }
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [router, redirectPath])
+
+  // Manejo de login con email
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -44,9 +70,7 @@ export default function LoginPage() {
 
     try {
       const userData = await loginWithEmail(email, password)
-      // Usar setTimeout para asegurar que localStorage se actualice antes de redirigir
       setTimeout(() => {
-        // Si el usuario no tiene suscripción premium, redirigir a la página de suscripción
         if (userData.subscription === "free" && redirectPath === "/") {
           router.push("/suscripcion")
         } else {
@@ -54,7 +78,6 @@ export default function LoginPage() {
         }
       }, 500)
     } catch (err: any) {
-      // Manejar errores específicos de Firebase
       if (err.code) {
         switch (err.code) {
           case "auth/user-not-found":
@@ -80,26 +103,19 @@ export default function LoginPage() {
     }
   }
 
-  // Modificar la función handleGoogleSignIn para redirigir a la página de suscripción después de iniciar sesión
+  // Manejo de login con Google (botón web)
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true)
     setError("")
 
     try {
-      console.log("Intentando iniciar sesión con Google...")
       const userData = await signInWithGoogle()
-      console.log("Inicio de sesión con Google exitoso, redirigiendo...")
-
-      // Si el usuario no tiene suscripción premium, redirigir a la página de suscripción
       if (userData.subscription === "free" && redirectPath === "/") {
         router.push("/suscripcion")
       } else {
         router.push(redirectPath)
       }
     } catch (err: any) {
-      console.error("Error al iniciar sesión con Google:", err)
-
-      // Manejar errores específicos de Google Auth
       if (err.code) {
         switch (err.code) {
           case "auth/unauthorized-domain":
