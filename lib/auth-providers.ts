@@ -1,35 +1,16 @@
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  sendEmailVerification,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from "firebase/auth"
+import { GoogleAuthProvider, signInWithCredential } from "firebase/auth"
 import { auth } from "./firebase"
 import type { User } from "./types"
 
-// Función para enviar token al WebView
-function sendTokenToWebView(token: string) {
-  if (typeof window !== "undefined" && window.ReactNativeWebView) {
-    // Para React Native WebView
-    window.ReactNativeWebView.postMessage(token)
-  } else {
-    // Para WebView estándar o debugging
-    window.postMessage({ type: "JWT_TOKEN", token }, "*")
-  }
-}
-
-export async function signInWithGoogle(): Promise<User> {
+// Función para autenticar con Firebase usando token de Google recibido desde Flutter
+export async function signInWithGoogleToken(idToken: string): Promise<User> {
   try {
-    const provider = new GoogleAuthProvider()
-    provider.addScope("profile")
-    provider.setCustomParameters({ prompt: "select_account" })
-
-    const result = await signInWithPopup(auth, provider)
-    const user = result.user
+    const credential = GoogleAuthProvider.credential(idToken)
+    const userCredential = await signInWithCredential(auth, credential)
+    const user = userCredential.user
 
     const token = await user.getIdToken()
-    sendTokenToWebView(token)
+    // Puedes enviar este token al WebView si quieres
 
     const userData: User = {
       id: user.uid,
@@ -43,8 +24,8 @@ export async function signInWithGoogle(): Promise<User> {
     window.dispatchEvent(new Event("storage"))
 
     return userData
-  } catch (error: any) {
-    console.error("Error al iniciar sesión con Google:", error)
+  } catch (error) {
+    console.error("Error autenticando con token de Google:", error)
     throw error
   }
 }
