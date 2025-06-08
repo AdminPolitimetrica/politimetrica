@@ -1,4 +1,4 @@
-const withPWA = require('next-pwa').default
+const withPWA = require('next-pwa')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
