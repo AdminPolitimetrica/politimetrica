@@ -2,9 +2,6 @@ const withPWA = require('next-pwa')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,4 +16,7 @@ const nextConfig = {
   },
 }
 
-module.exports = withPWA(nextConfig)
+const configWithoutEslint = { ...nextConfig }
+delete configWithoutEslint.eslint
+
+module.exports = withPWA(configWithoutEslint)
