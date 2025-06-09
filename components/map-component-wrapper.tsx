@@ -16,6 +16,10 @@ export default function MapComponentWrapper({
 }: MapComponentWrapperProps) {
   const [country, setCountry] = useState<"ecuador" | "peru" | "colombia">("ecuador")
 
+  const handleCountryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setCountry(event.target.value as "ecuador" | "peru" | "colombia")
+  }
+
   return (
     <div style={{ height: "100%", width: "100%" }}>
       <div style={{ marginBottom: 10 }}>
@@ -25,7 +29,7 @@ export default function MapComponentWrapper({
         <select
           id="country-select"
           value={country}
-          onChange={(e) => setCountry(e.target.value as "ecuador" | "peru" | "colombia")}
+          onChange={handleCountryChange}
         >
           <option value="ecuador">Ecuador</option>
           <option value="peru">Perú</option>
