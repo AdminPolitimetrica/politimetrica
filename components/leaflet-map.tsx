@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { MapContainer, TileLayer, GeoJSON } from "react-leaflet"
+import { MapContainer, TileLayer, GeoJSON, Marker, Tooltip } from "react-leaflet"
+import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
-// Reemplazar el objeto ecuadorGeoJson actual con este más completo que incluye todas las provincias:
+// GeoJSON simplificado para Ecuador, Perú y Colombia (usa tus datos completos)
 const ecuadorGeoJson = {
   type: "FeatureCollection",
   features: [
@@ -396,28 +397,97 @@ const ecuadorGeoJson = {
   ],
 }
 
+const peruGeoJson = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { name: "Lima", id: "lima" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-77.5, -12.5],
+            [-76.5, -12.5],
+            [-76.5, -11.5],
+            [-77.5, -11.5],
+            [-77.5, -12.5],
+          ],
+        ],
+      },
+    },
+    // Añade más departamentos aquí...
+  ],
+}
+
+const colombiaGeoJson = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { name: "Cundinamarca", id: "cundinamarca" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-74.5, 4.0],
+            [-73.5, 4.0],
+            [-73.5, 5.0],
+            [-74.5, 5.0],
+            [-74.5, 4.0],
+          ],
+        ],
+      },
+    },
+    // Añade más departamentos aquí...
+  ],
+}
+
 interface MapComponentProps {
+  country: "ecuador" | "peru" | "colombia"
   onProvinceSelect?: (provinceId: string) => void
   selectedProvince?: string | null
 }
 
-export default function MapComponent({ onProvinceSelect, selectedProvince }: MapComponentProps) {
+export default function MapComponent({ country, onProvinceSelect, selectedProvince }: MapComponentProps) {
   const router = useRouter()
   const [internalSelectedProvince, setInternalSelectedProvince] = useState<string | null>(selectedProvince || null)
 
-  // Actualizar el estado interno cuando cambia la prop
   useEffect(() => {
     setInternalSelectedProvince(selectedProvince || null)
   }, [selectedProvince])
 
+  function getCountryData() {
+    switch (country) {
+      case "peru":
+        return {
+          geoJson: peruGeoJson,
+          center: [-9.19, -75.0152],
+          zoom: 6,
+        }
+      case "colombia":
+        return {
+          geoJson: colombiaGeoJson,
+          center: [4.5709, -74.2973],
+          zoom: 6,
+        }
+      case "ecuador":
+      default:
+        return {
+          geoJson: ecuadorGeoJson,
+          center: [-1.8312, -78.1834],
+          zoom: 7,
+        }
+    }
+  }
+
+  const { geoJson, center, zoom } = getCountryData()
+
   const handleProvinceClick = (province: string) => {
     setInternalSelectedProvince(province)
-
-    // Si hay un manejador externo, lo llamamos
     if (onProvinceSelect) {
       onProvinceSelect(province)
     } else {
-      // Comportamiento por defecto: navegar a la página de la provincia
       router.push(`/provincias/${province}`)
     }
   }
@@ -432,18 +502,26 @@ export default function MapComponent({ onProvinceSelect, selectedProvince }: Map
     }
   }
 
+  function getCentroid(coordinates: number[][]) {
+    let latSum = 0
+    let lngSum = 0
+    let count = 0
+    coordinates.forEach(([lng, lat]) => {
+      latSum += lat
+      lngSum += lng
+      count++
+    })
+    return [latSum / count, lngSum / count] as [number, number]
+  }
+
   return (
-    <MapContainer
-      center={[-1.8312, -78.1834]} // Ecuador's approximate center
-      zoom={7}
-      style={{ height: "100%", width: "100%" }}
-    >
+    <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <GeoJSON
-        data={ecuadorGeoJson as any}
+        data={geoJson as any}
         style={provinceStyle}
         onEachFeature={(feature, layer) => {
           layer.on({
@@ -466,6 +544,15 @@ export default function MapComponent({ onProvinceSelect, selectedProvince }: Map
           layer.bindTooltip(feature.properties.name, { permanent: false })
         }}
       />
+      {geoJson.features.map((feature) => {
+        const coords = feature.geometry.coordinates[0]
+        const [lat, lng] = getCentroid(coords)
+        return (
+          <Marker key={feature.properties.id} position={[lat, lng]}>
+            <Tooltip>{feature.properties.name}</Tooltip>
+          </Marker>
+        )
+      })}
     </MapContainer>
   )
 }
