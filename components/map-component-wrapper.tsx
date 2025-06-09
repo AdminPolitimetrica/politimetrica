@@ -14,14 +14,14 @@ export default function MapComponentWrapper({
   selectedProvince,
   highlightedProvinces = [],
 }: MapComponentWrapperProps) {
-  // Estado para seleccionar el país a mostrar
   const [country, setCountry] = useState<"ecuador" | "peru" | "colombia">("ecuador")
 
   return (
     <div style={{ height: "100%", width: "100%" }}>
-      {/* Selector simple para cambiar país */}
       <div style={{ marginBottom: 10 }}>
-        <label htmlFor="country-select" style={{ marginRight: 8 }}>Selecciona país:</label>
+        <label htmlFor="country-select" style={{ marginRight: 8 }}>
+          Selecciona país:
+        </label>
         <select
           id="country-select"
           value={country}
