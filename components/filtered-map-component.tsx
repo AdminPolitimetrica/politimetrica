@@ -149,11 +149,6 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
             <SelectTrigger>
               <SelectValue placeholder="Selecciona país" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ecuador">Ecuador :)</SelectItem>
-              <SelectItem value="peru">Perú :) </SelectItem>
-              <SelectItem value="colombia">Colombia :)</SelectItem>
-            </SelectContent>
           </Select>
         </div>
         <Button variant="outline" onClick={handleClearFilters} disabled={!selectedProvince && !selectedParty}>
