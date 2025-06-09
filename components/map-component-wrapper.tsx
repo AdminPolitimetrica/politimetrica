@@ -1,25 +1,44 @@
 "use client"
 
-import dynamic from "next/dynamic"
+import { useState } from "react"
+import { MapComponent } from "./map-component"
 
-// Importa dinámicamente el mapa de Leaflet (evita problemas de SSR)
-const LeafletMap = dynamic(() => import("./leaflet-map"), { ssr: false })
-
-interface MapComponentProps {
+interface MapComponentWrapperProps {
   onProvinceSelect: (provinceId: string) => void
   selectedProvince: string | null
-  highlightedProvinces: string[]
+  highlightedProvinces?: string[]
 }
 
 export default function MapComponentWrapper({
   onProvinceSelect,
   selectedProvince,
   highlightedProvinces = [],
-}: MapComponentProps) {
+}: MapComponentWrapperProps) {
+  // Estado para seleccionar el país a mostrar
+  const [country, setCountry] = useState<"ecuador" | "peru" | "colombia">("ecuador")
+
   return (
-    <LeafletMap
-      onProvinceSelect={onProvinceSelect}
-      selectedProvince={selectedProvince}
-    />
+    <div style={{ height: "100%", width: "100%" }}>
+      {/* Selector simple para cambiar país */}
+      <div style={{ marginBottom: 10 }}>
+        <label htmlFor="country-select" style={{ marginRight: 8 }}>Selecciona país:</label>
+        <select
+          id="country-select"
+          value={country}
+          onChange={(e) => setCountry(e.target.value as "ecuador" | "peru" | "colombia")}
+        >
+          <option value="ecuador">Ecuador</option>
+          <option value="peru">Perú</option>
+          <option value="colombia">Colombia</option>
+        </select>
+      </div>
+
+      <MapComponent
+        country={country}
+        onProvinceSelect={onProvinceSelect}
+        selectedProvince={selectedProvince}
+        highlightedProvinces={highlightedProvinces}
+      />
+    </div>
   )
 }
