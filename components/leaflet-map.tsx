@@ -402,6 +402,230 @@ const peruGeoJson = {
   features: [
     {
       type: "Feature",
+      properties: { name: "Amazonas", id: "amazonas" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-78.5, -6.0],
+            [-77.0, -6.0],
+            [-77.0, -3.0],
+            [-78.5, -3.0],
+            [-78.5, -6.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Áncash", id: "ancash" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-78.5, -10.0],
+            [-77.0, -10.0],
+            [-77.0, -8.0],
+            [-78.5, -8.0],
+            [-78.5, -10.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Apurímac", id: "apurimac" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-73.5, -14.5],
+            [-72.0, -14.5],
+            [-72.0, -13.0],
+            [-73.5, -13.0],
+            [-73.5, -14.5],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Arequipa", id: "arequipa" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-73.0, -18.0],
+            [-71.0, -18.0],
+            [-71.0, -16.0],
+            [-73.0, -16.0],
+            [-73.0, -18.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Ayacucho", id: "ayacucho" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-75.5, -14.5],
+            [-73.5, -14.5],
+            [-73.5, -12.5],
+            [-75.5, -12.5],
+            [-75.5, -14.5],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Cajamarca", id: "cajamarca" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-79.5, -7.0],
+            [-78.0, -7.0],
+            [-78.0, -5.0],
+            [-79.5, -5.0],
+            [-79.5, -7.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Callao", id: "callao" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-77.5, -12.0],
+            [-77.0, -12.0],
+            [-77.0, -11.5],
+            [-77.5, -11.5],
+            [-77.5, -12.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Cusco", id: "cusco" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-73.0, -15.0],
+            [-71.0, -15.0],
+            [-71.0, -13.0],
+            [-73.0, -13.0],
+            [-73.0, -15.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Huancavelica", id: "huancavelica" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-75.5, -13.5],
+            [-74.0, -13.5],
+            [-74.0, -12.0],
+            [-75.5, -12.0],
+            [-75.5, -13.5],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Huánuco", id: "huanuco" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-76.5, -10.5],
+            [-74.5, -10.5],
+            [-74.5, -8.5],
+            [-76.5, -8.5],
+            [-76.5, -10.5],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Ica", id: "ica" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-76.5, -15.0],
+            [-75.0, -15.0],
+            [-75.0, -13.5],
+            [-76.5, -13.5],
+            [-76.5, -15.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Junín", id: "junin" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-76.0, -12.0],
+            [-74.0, -12.0],
+            [-74.0, -10.0],
+            [-76.0, -10.0],
+            [-76.0, -12.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "La Libertad", id: "la-libertad" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-79.0, -8.5],
+            [-77.5, -8.5],
+            [-77.5, -7.0],
+            [-79.0, -7.0],
+            [-79.0, -8.5],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Lambayeque", id: "lambayeque" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-80.5, -7.0],
+            [-79.5, -7.0],
+            [-79.5, -6.0],
+            [-80.5, -6.0],
+            [-80.5, -7.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
       properties: { name: "Lima", id: "lima" },
       geometry: {
         type: "Polygon",
@@ -416,9 +640,168 @@ const peruGeoJson = {
         ],
       },
     },
-    // Añade más departamentos aquí...
+    {
+      type: "Feature",
+      properties: { name: "Loreto", id: "loreto" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-75.0, -5.0],
+            [-71.0, -5.0],
+            [-71.0, -1.0],
+            [-75.0, -1.0],
+            [-75.0, -5.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Madre de Dios", id: "madre-de-dios" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-72.0, -13.0],
+            [-69.0, -13.0],
+            [-69.0, -10.0],
+            [-72.0, -10.0],
+            [-72.0, -13.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Moquegua", id: "moquegua" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-71.5, -17.5],
+            [-70.5, -17.5],
+            [-70.5, -16.5],
+            [-71.5, -16.5],
+            [-71.5, -17.5],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Pasco", id: "pasco" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-75.5, -11.0],
+            [-74.5, -11.0],
+            [-74.5, -9.5],
+            [-75.5, -9.5],
+            [-75.5, -11.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Piura", id: "piura" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-81.5, -6.0],
+            [-79.5, -6.0],
+            [-79.5, -3.0],
+            [-81.5, -3.0],
+            [-81.5, -6.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Puno", id: "puno" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-71.0, -17.0],
+            [-69.0, -17.0],
+            [-69.0, -14.0],
+            [-71.0, -14.0],
+            [-71.0, -17.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "San Martín", id: "san-martin" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-77.5, -8.0],
+            [-75.5, -8.0],
+            [-75.5, -5.5],
+            [-77.5, -5.5],
+            [-77.5, -8.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Tacna", id: "tacna" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-70.5, -18.0],
+            [-69.5, -18.0],
+            [-69.5, -17.0],
+            [-70.5, -17.0],
+            [-70.5, -18.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Tumbes", id: "tumbes" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-81.0, -4.0],
+            [-80.0, -4.0],
+            [-80.0, -3.0],
+            [-81.0, -3.0],
+            [-81.0, -4.0],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Ucayali", id: "ucayali" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-75.0, -10.0],
+            [-73.0, -10.0],
+            [-73.0, -7.0],
+            [-75.0, -7.0],
+            [-75.0, -10.0],
+          ],
+        ],
+      },
+    },
   ],
-}
+};
 
 const colombiaGeoJson = {
   type: "FeatureCollection",
