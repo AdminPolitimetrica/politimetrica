@@ -452,6 +452,7 @@ interface MapComponentProps {
 export default function MapComponent({ country, onProvinceSelect, selectedProvince }: MapComponentProps) {
   const router = useRouter()
   const [internalSelectedProvince, setInternalSelectedProvince] = useState<string | null>(selectedProvince || null)
+  const [map, setMap] = useState<L.Map | null>(null)
 
   useEffect(() => {
     setInternalSelectedProvince(selectedProvince || null)
@@ -483,12 +484,16 @@ export default function MapComponent({ country, onProvinceSelect, selectedProvin
 
   const { geoJson, center, zoom } = getCountryData()
 
-  const handleProvinceClick = (province: string) => {
+  const handleProvinceClick = (province: string, feature: GeoJSON.Feature) => {
     setInternalSelectedProvince(province)
     if (onProvinceSelect) {
       onProvinceSelect(province)
     } else {
       router.push(`/provincias/${province}`)
+    }
+    if (map) {
+      const bounds = getFeatureBounds(feature)
+      map.fitBounds(bounds, { maxZoom: 12, padding: [20, 20] })
     }
   }
 
@@ -500,6 +505,18 @@ export default function MapComponent({ country, onProvinceSelect, selectedProvin
       color: "white",
       fillOpacity: 0.7,
     }
+  }
+
+  function getFeatureBounds(feature: GeoJSON.Feature) {
+    const coords =
+      feature.geometry.type === "Polygon"
+        ? feature.geometry.coordinates[0]
+        : feature.geometry.type === "MultiPolygon"
+        ? feature.geometry.coordinates[0][0]
+        : []
+
+    const latlngs = coords.map(([lng, lat]) => L.latLng(lat, lng))
+    return L.latLngBounds(latlngs)
   }
 
   function getCentroid(coordinates: number[][]) {
@@ -515,7 +532,12 @@ export default function MapComponent({ country, onProvinceSelect, selectedProvin
   }
 
   return (
-    <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }}>
+    <MapContainer
+      center={center}
+      zoom={zoom}
+      style={{ height: "100%", width: "100%" }}
+      whenCreated={setMap}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -525,7 +547,7 @@ export default function MapComponent({ country, onProvinceSelect, selectedProvin
         style={provinceStyle}
         onEachFeature={(feature, layer) => {
           layer.on({
-            click: () => handleProvinceClick(feature.properties.id),
+            click: () => handleProvinceClick(feature.properties.id, feature),
             mouseover: (e) => {
               const layer = e.target
               layer.setStyle({
