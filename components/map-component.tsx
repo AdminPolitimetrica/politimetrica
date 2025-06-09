@@ -396,13 +396,63 @@ const ecuadorGeoJson = {
   ],
 }
 
+// GeoJSON simplificado de Perú (departamentos)
+const peruGeoJson = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { name: "Lima", id_provincia: "lima" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-77.5, -12.5],
+            [-76.5, -12.5],
+            [-76.5, -11.5],
+            [-77.5, -11.5],
+            [-77.5, -12.5],
+          ],
+        ],
+      },
+    },
+    // Puedes añadir más departamentos aquí
+  ],
+}
+
+// GeoJSON simplificado de Colombia (departamentos)
+const colombiaGeoJson = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { name: "Cundinamarca", id_provincia: "cundinamarca" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-74.5, 4.0],
+            [-73.5, 4.0],
+            [-73.5, 5.0],
+            [-74.5, 5.0],
+            [-74.5, 4.0],
+          ],
+        ],
+      },
+    },
+    // Puedes añadir más departamentos aquí
+  ],
+}
+
 interface MapComponentProps {
+  country: "ecuador" | "peru" | "colombia"
   onProvinceSelect?: (provinceId: string) => void
   selectedProvince?: string | null
   highlightedProvinces?: string[]
 }
 
 export function MapComponent({
+  country,
   onProvinceSelect,
   selectedProvince = null,
   highlightedProvinces = [],
@@ -410,77 +460,104 @@ export function MapComponent({
   const mapRef = useRef<L.Map | null>(null)
   const geoJsonLayerRef = useRef<L.GeoJSON | null>(null)
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (!mapRef.current) {
-        // Inicializar el mapa
-        mapRef.current = L.map("map", {
+  // Función para obtener GeoJSON y centro según país
+  function getCountryData() {
+    switch (country) {
+      case "peru":
+        return {
+          geoJson: peruGeoJson,
+          center: [-9.19, -75.0152],
+          zoom: 6,
+        }
+      case "colombia":
+        return {
+          geoJson: colombiaGeoJson,
+          center: [4.5709, -74.2973],
+          zoom: 6,
+        }
+      case "ecuador":
+      default:
+        return {
+          geoJson: ecuadorGeoJson,
           center: [-1.831239, -78.183406],
           zoom: 7,
+        }
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const { geoJson, center, zoom } = getCountryData()
+
+      if (!mapRef.current) {
+        mapRef.current = L.map("map", {
+          center,
+          zoom,
           zoomControl: true,
           attributionControl: false,
         })
 
-        // Añadir capa base de OpenStreetMap
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
         }).addTo(mapRef.current)
+      } else {
+        mapRef.current.setView(center, zoom)
+        if (geoJsonLayerRef.current) {
+          geoJsonLayerRef.current.clearLayers()
+        }
+      }
 
-        // Crear capa GeoJSON directamente con los datos
-        geoJsonLayerRef.current = L.geoJSON(ecuadorGeoJson, {
-          style: (feature) => {
-            const provinceId = feature?.properties?.id_provincia?.toLowerCase() || ""
-            const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
-            const isSelected = selectedProvince === provinceId
+      geoJsonLayerRef.current = L.geoJSON(geoJson, {
+        style: (feature) => {
+          const provinceId = feature?.properties?.id_provincia?.toLowerCase() || ""
+          const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
+          const isSelected = selectedProvince === provinceId
 
-            return {
-              fillColor: isSelected ? "#3b82f6" : isHighlighted ? "#93c5fd" : "#d1d5db",
-              weight: isSelected ? 2 : 1,
-              opacity: 1,
-              color: isSelected ? "#1d4ed8" : "#6b7280",
-              fillOpacity: isHighlighted ? 0.7 : 0.3,
-            }
-          },
-          onEachFeature: (feature, layer) => {
-            const provinceId = feature?.properties?.id_provincia?.toLowerCase() || ""
-            const provinceName = feature?.properties?.name || "Provincia"
+          return {
+            fillColor: isSelected ? "#3b82f6" : isHighlighted ? "#93c5fd" : "#d1d5db",
+            weight: isSelected ? 2 : 1,
+            opacity: 1,
+            color: isSelected ? "#1d4ed8" : "#6b7280",
+            fillOpacity: isHighlighted ? 0.7 : 0.3,
+          }
+        },
+        onEachFeature: (feature, layer) => {
+          const provinceId = feature?.properties?.id_provincia?.toLowerCase() || ""
+          const provinceName = feature?.properties?.name || "Provincia"
 
-            // Añadir tooltip
-            layer.bindTooltip(provinceName, {
-              permanent: false,
-              direction: "center",
-              className: "province-tooltip",
-            })
+          layer.bindTooltip(provinceName, {
+            permanent: false,
+            direction: "center",
+            className: "province-tooltip",
+          })
 
-            // Añadir evento de clic
-            layer.on({
-              click: () => {
-                if (onProvinceSelect) {
-                  onProvinceSelect(provinceId)
-                }
-              },
-              mouseover: (e) => {
-                const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
-                if (isHighlighted) {
-                  const layer = e.target
-                  layer.setStyle({
-                    fillOpacity: 0.9,
-                  })
-                }
-              },
-              mouseout: (e) => {
-                const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
-                const isSelected = selectedProvince === provinceId
-
+          layer.on({
+            click: () => {
+              if (onProvinceSelect) {
+                onProvinceSelect(provinceId)
+              }
+            },
+            mouseover: (e) => {
+              const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
+              if (isHighlighted) {
                 const layer = e.target
                 layer.setStyle({
-                  fillOpacity: isSelected ? 0.8 : isHighlighted ? 0.7 : 0.3,
+                  fillOpacity: 0.9,
                 })
-              },
-            })
-          },
-        }).addTo(mapRef.current)
-      }
+              }
+            },
+            mouseout: (e) => {
+              const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
+              const isSelected = selectedProvince === provinceId
+
+              const layer = e.target
+              layer.setStyle({
+                fillOpacity: isSelected ? 0.8 : isHighlighted ? 0.7 : 0.3,
+              })
+            },
+          })
+        },
+      }).addTo(mapRef.current)
     }
 
     return () => {
@@ -489,27 +566,8 @@ export function MapComponent({
         mapRef.current = null
       }
     }
-  }, [])
-
-  // Actualizar estilos cuando cambian las provincias destacadas
-  useEffect(() => {
-    if (geoJsonLayerRef.current) {
-      geoJsonLayerRef.current.eachLayer((layer: any) => {
-        const feature = layer.feature
-        const provinceId = feature?.properties?.id_provincia?.toLowerCase() || ""
-        const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
-        const isSelected = selectedProvince === provinceId
-
-        layer.setStyle({
-          fillColor: isSelected ? "#3b82f6" : isHighlighted ? "#93c5fd" : "#d1d5db",
-          weight: isSelected ? 2 : 1,
-          opacity: 1,
-          color: isSelected ? "#1d4ed8" : "#6b7280",
-          fillOpacity: isHighlighted ? 0.7 : 0.3,
-        })
-      })
-    }
-  }, [highlightedProvinces, selectedProvince])
+  }, [country, highlightedProvinces, selectedProvince])
 
   return <div id="map" style={{ width: "100%", height: "100%" }} />
+}
 }
