@@ -36,6 +36,7 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
   const [parties, setParties] = useState<Party[]>(initialParties)
   const [highlightedProvinces, setHighlightedProvinces] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [country, setCountry] = useState<"ecuador" | "peru" | "colombia">("ecuador")
 
   // Load all politicians and parties on mount
   useEffect(() => {
@@ -119,6 +120,11 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
     setSelectedParty("")
     setHighlightedProvinces([])
   }
+  const handleCountryChange = (value: "ecuador" | "peru" | "colombia") => {
+    setCountry(value)
+    setSelectedProvince(null)
+    setHighlightedProvinces([])
+  }
 
   return (
     <div className="space-y-4">
@@ -135,6 +141,18 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
                   {party.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full sm:w-48">
+          <Select value={country} onValueChange={handleCountryChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona país" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ecuador">Ecuador</SelectItem>
+              <SelectItem value="peru">Perú</SelectItem>
+              <SelectItem value="colombia">Colombia</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -166,6 +184,7 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
             </CardHeader>
             <CardContent className="p-0 h-[420px]">
               <MapComponent
+                country={country}
                 onProvinceSelect={handleProvinceSelect}
                 selectedProvince={selectedProvince}
                 highlightedProvinces={highlightedProvinces}
