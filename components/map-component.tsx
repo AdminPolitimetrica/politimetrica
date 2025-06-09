@@ -485,6 +485,18 @@ export function MapComponent({
     }
   }
 
+  // Función para calcular bounds de una feature GeoJSON
+  function getFeatureBounds(feature: GeoJSON.Feature) {
+    const coordinates = feature.geometry.type === "Polygon"
+      ? feature.geometry.coordinates[0]
+      : feature.geometry.type === "MultiPolygon"
+      ? feature.geometry.coordinates[0][0]
+      : []
+
+    const latlngs = coordinates.map(([lng, lat]) => L.latLng(lat, lng))
+    return L.latLngBounds(latlngs)
+  }
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const { geoJson, center, zoom } = getCountryData()
@@ -536,6 +548,11 @@ export function MapComponent({
               if (onProvinceSelect) {
                 onProvinceSelect(provinceId)
               }
+              // Hacer zoom y centrar en la provincia clickeada
+              if (mapRef.current) {
+                const bounds = getFeatureBounds(feature)
+                mapRef.current.fitBounds(bounds, { maxZoom: 12, padding: [20, 20] })
+              }
             },
             mouseover: (e) => {
               const isHighlighted = highlightedProvinces.length === 0 || highlightedProvinces.includes(provinceId)
@@ -566,8 +583,7 @@ export function MapComponent({
         mapRef.current = null
       }
     }
-  }, [country, highlightedProvinces, selectedProvince])
+  }, [country, highlightedProvinces, selectedProvince, onProvinceSelect])
 
   return <div id="map" style={{ width: "100%", height: "100%" }} />
 }
-
