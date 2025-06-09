@@ -401,7 +401,7 @@ const peruGeoJson = {
   features: [
     {
       type: "Feature",
-      properties: { name: "Lima", id: "lima" },
+      properties: { name: "Lima", id_provincia: "lima" },
       geometry: {
         type: "Polygon",
         coordinates: [
