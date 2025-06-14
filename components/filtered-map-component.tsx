@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { PoliticianCard } from "@/components/politician-card"
 import { getPoliticians, getPoliticiansByProvince, getParties } from "@/lib/data"
+import { supabase } from "@/lib/supabaseClient"
 
-// Dynamic import for MapComponent (no SSR)
 const MapComponent = dynamic(() => import("@/components/map-component-wrapper"), {
   ssr: false,
   loading: () => (
@@ -24,21 +24,42 @@ interface Party {
   name: string
 }
 
+interface Country {
+  id: number
+  name: string
+  code: string
+}
+
 interface FilteredMapComponentProps {
   parties?: Party[]
 }
 
 export function FilteredMapComponent({ parties: initialParties = [] }: FilteredMapComponentProps) {
   const [politicians, setPoliticians] = useState<Politician[]>([])
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null) // clave compuesta id-country_id
   const [selectedParty, setSelectedParty] = useState<string>("")
   const [provincePoliticians, setProvincePoliticians] = useState<Politician[]>([])
   const [parties, setParties] = useState<Party[]>(initialParties)
   const [highlightedProvinces, setHighlightedProvinces] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [country, setCountry] = useState<"ecuador" | "peru" | "colombia">("ecuador")
+  const [countries, setCountries] = useState<Country[]>([])
 
-  // Load all politicians and parties on mount
+  useEffect(() => {
+    async function fetchCountries() {
+      const { data, error } = await supabase.from("countries").select("id, name, code").order("name", { ascending: true })
+      if (error) {
+        console.error("Error fetching countries:", error)
+      } else if (data) {
+        setCountries(data)
+        if (!data.find((c) => c.code === country)) {
+          setCountry(data[0]?.code as "ecuador" | "peru" | "colombia" || "ecuador")
+        }
+      }
+    }
+    fetchCountries()
+  }, [])
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
@@ -59,7 +80,6 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
     fetchData()
   }, [initialParties])
 
-  // Highlight provinces with politicians from the selected party
   useEffect(() => {
     if (selectedParty) {
       const filteredByParty = politicians.filter((p) =>
@@ -72,7 +92,6 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
     }
   }, [selectedParty, politicians])
 
-  // Load politicians for the selected province and party
   useEffect(() => {
     const fetchProvincePoliticians = async () => {
       if (!selectedProvince) {
@@ -98,32 +117,35 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
     fetchProvincePoliticians()
   }, [selectedProvince, selectedParty])
 
-  // Helper to get party name by id
   function getPartyName(partyId: string) {
     const party = parties.find((p) => p.id === partyId)
     return party ? party.name : partyId
   }
 
-  // Helper to capitalize province name
-  function formatProvinceName(provinceId: string | null) {
-    if (!provinceId) return ""
-    return provinceId
+  function formatProvinceName(provinceKey: string | null) {
+    if (!provinceKey) return ""
+    const parts = provinceKey.split("-")
+    if (parts.length < 2) return provinceKey
+    const id = parts.slice(0, -1).join("-")
+    return id
       .split("-")
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ")
   }
 
-  const handleProvinceSelect = (provinceId: string) => setSelectedProvince(provinceId)
+  const handleProvinceSelect = (provinceKey: string) => setSelectedProvince(provinceKey)
   const handlePartyChange = (value: string) => setSelectedParty(value === "all" ? "" : value)
   const handleClearFilters = () => {
     setSelectedProvince(null)
     setSelectedParty("")
     setHighlightedProvinces([])
   }
-  const handleCountryChange = (value: "ecuador" | "peru" | "colombia") => {
-    setCountry(value)
-    setSelectedProvince(null)
-    setHighlightedProvinces([])
+  const handleCountryChange = (value: string) => {
+    if (value === "ecuador" || value === "peru" || value === "colombia") {
+      setCountry(value)
+      setSelectedProvince(null)
+      setHighlightedProvinces([])
+    }
   }
 
   return (
@@ -149,6 +171,13 @@ export function FilteredMapComponent({ parties: initialParties = [] }: FilteredM
             <SelectTrigger>
               <SelectValue placeholder="Selecciona país" />
             </SelectTrigger>
+            <SelectContent>
+              {countries.map((c) => (
+                <SelectItem key={c.id} value={c.code}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
         <Button variant="outline" onClick={handleClearFilters} disabled={!selectedProvince && !selectedParty}>
