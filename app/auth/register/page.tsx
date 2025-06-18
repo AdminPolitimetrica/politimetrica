@@ -27,7 +27,6 @@ export default function RegisterPage() {
   const [error, setError] = useState("")
   const [verificationSent, setVerificationSent] = useState(false)
 
-  // Modificar la función handleSubmit para redirigir a la página de suscripción después de registrarse
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -39,29 +38,56 @@ export default function RegisterPage() {
       return
     }
 
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres")
+      setLoading(false)
+      return
+    }
+
     try {
       await registerWithEmail(name, email, password)
       setVerificationSent(true)
-      // Después de verificar el correo, el usuario será redirigido a la página de suscripción
     } catch (err: any) {
-      setError(err.message || "Error al registrar. Por favor intenta de nuevo.")
+      console.error("Registration error:", err)
+      
+      // Manejo específico de errores de Supabase
+      if (err.message?.includes("User already registered")) {
+        setError("Este correo electrónico ya está registrado. Intenta iniciar sesión.")
+      } else if (err.message?.includes("Invalid email")) {
+        setError("Por favor ingresa un correo electrónico válido.")
+      } else if (err.message?.includes("Password")) {
+        setError("La contraseña debe tener al menos 6 caracteres.")
+      } else {
+        setError(err.message || "Error al registrar. Por favor intenta de nuevo.")
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  // Modificar la función handleGoogleSignIn para redirigir a la página de suscripción después de registrarse
+  // Función actualizada para usar callback
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true)
     setError("")
 
     try {
-      const userData = await signInWithGoogle()
-      // Si el usuario no tiene suscripción premium, redirigir a la página de suscripción
-      router.push("/suscripcion")
+      // signInWithGoogle ahora redirige automáticamente a Google OAuth
+      // y luego a /auth/callback, no necesitamos manejar la respuesta aquí
+      await signInWithGoogle()
+      
+      // Este código no se ejecutará porque signInWithGoogle redirige
+      
     } catch (err: any) {
       console.error("Google sign-in error:", err)
-      setError("No se pudo registrar con Google. Por favor intenta con email y contraseña.")
+      
+      // Manejo específico de errores de OAuth
+      if (err.message?.includes("invalid_redirect_uri")) {
+        setError("Error de configuración. Por favor contacta al soporte.")
+      } else if (err.message?.includes("access_denied")) {
+        setError("Acceso denegado. Por favor intenta de nuevo.")
+      } else {
+        setError("No se pudo registrar con Google. Por favor intenta con email y contraseña.")
+      }
     } finally {
       setGoogleLoading(false)
     }
@@ -80,12 +106,19 @@ export default function RegisterPage() {
               <Mail className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-700">
                 Hemos enviado un correo de verificación a <strong>{email}</strong>. Por favor, revisa tu bandeja de
-                entrada y sigue las instrucciones para verificar tu cuenta.
+                entrada y sigue las instrucciones para verificar tu cuenta antes de iniciar sesión.
               </AlertDescription>
             </Alert>
-            <div className="text-center mt-4">
+            <div className="text-center mt-4 space-y-2">
               <Button onClick={() => router.push("/auth/login")} className="w-full">
                 Ir a iniciar sesión
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setVerificationSent(false)} 
+                className="w-full"
+              >
+                Volver al registro
               </Button>
             </div>
           </CardContent>
@@ -104,7 +137,7 @@ export default function RegisterPage() {
                 variant="outline"
                 className="w-full"
                 onClick={handleGoogleSignIn}
-                disabled={googleLoading}
+                disabled={googleLoading || loading}
               >
                 {googleLoading ? (
                   "Conectando..."
@@ -135,6 +168,7 @@ export default function RegisterPage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
+                      disabled={loading || googleLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -146,6 +180,7 @@ export default function RegisterPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      disabled={loading || googleLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -158,6 +193,8 @@ export default function RegisterPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        disabled={loading || googleLoading}
+                        minLength={6}
                       />
                       <Button
                         type="button"
@@ -165,6 +202,7 @@ export default function RegisterPage() {
                         size="icon"
                         className="absolute right-0 top-0 h-full px-3"
                         onClick={() => setShowPassword(!showPassword)}
+                        disabled={loading || googleLoading}
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -174,6 +212,9 @@ export default function RegisterPage() {
                         <span className="sr-only">{showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}</span>
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      La contraseña debe tener al menos 6 caracteres
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
@@ -184,10 +225,12 @@ export default function RegisterPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
+                      disabled={loading || googleLoading}
+                      minLength={6}
                     />
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button type="submit" className="w-full" disabled={loading || googleLoading}>
                     {loading ? (
                       "Registrando..."
                     ) : (

@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -14,12 +12,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useCurrentUser } from "@/lib/auth"
-import { loginWithEmail, signInWithGoogle, signInWithGoogleToken } from "@/lib/auth-providers"
+import { loginWithEmail, signInWithGoogle } from "@/lib/auth-providers"
 
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectPath = searchParams.get("redirect") || "/"
+  const redirectPath = searchParams.get("redirect") || "/suscripcion"
+  const oauthError = searchParams.get("error")
   const { user } = useCurrentUser()
 
   const [email, setEmail] = useState("")
@@ -29,38 +28,23 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Si el usuario ya está autenticado, redirigir
+  // Manejar errores de OAuth desde la URL
+  useEffect(() => {
+    if (oauthError) {
+      if (oauthError === "oauth_failed") {
+        setError("Error en la autenticación con Google. Por favor intenta de nuevo.")
+      } else if (oauthError === "access_denied") {
+        setError("Acceso denegado. Por favor autoriza la aplicación para continuar.")
+      }
+    }
+  }, [oauthError])
+
+  // Redirigir si el usuario ya está autenticado
   useEffect(() => {
     if (user) {
       router.push(redirectPath)
     }
   }, [user, router, redirectPath])
-
-  // Escuchar mensajes desde Flutter WebView con tokens Google
-  useEffect(() => {
-    function handleMessage(event: MessageEvent) {
-      if (event.data?.type === "GOOGLE_TOKENS") {
-        const { idToken } = event.data
-        if (idToken) {
-          setGoogleLoading(true)
-          signInWithGoogleToken(idToken)
-            .then(() => {
-              router.push(redirectPath)
-            })
-            .catch((err) => {
-              console.error("Error autenticando con token recibido:", err)
-              setError("Error al autenticar con Google. Por favor intenta de nuevo.")
-            })
-            .finally(() => {
-              setGoogleLoading(false)
-            })
-        }
-      }
-    }
-
-    window.addEventListener("message", handleMessage)
-    return () => window.removeEventListener("message", handleMessage)
-  }, [router, redirectPath])
 
   // Manejo de login con email
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,82 +53,70 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const userData = await loginWithEmail(email, password)
-      setTimeout(() => {
-        if (userData.subscription === "free" && redirectPath === "/") {
-          router.push("/suscripcion")
-        } else {
-          router.push(redirectPath)
-        }
-      }, 500)
+      await loginWithEmail(email, password)
+      router.push(redirectPath)
     } catch (err: any) {
-      if (err.code) {
-        switch (err.code) {
-          case "auth/user-not-found":
-            setError("No existe una cuenta con este correo electrónico.")
-            break
-          case "auth/wrong-password":
-            setError("Contraseña incorrecta. Por favor intenta de nuevo.")
-            break
-          case "auth/invalid-credential":
-            setError("Credenciales inválidas. Por favor verifica tu correo y contraseña.")
-            break
-          case "auth/too-many-requests":
-            setError("Demasiados intentos fallidos. Por favor intenta más tarde.")
-            break
-          default:
-            setError(err.message || "Error al iniciar sesión. Por favor intenta de nuevo.")
+      console.error("Login error:", err)
+      
+      let errorMessage = "Error al iniciar sesión. Por favor intenta de nuevo."
+      
+      if (err.message) {
+        // Mapeo de errores de Supabase
+        if (err.message.includes("Invalid login credentials") || 
+            err.message.includes("invalid_credentials")) {
+          errorMessage = "Credenciales inválidas. Por favor verifica tu correo y contraseña."
+        } else if (err.message.includes("Email not confirmed") || 
+                   err.message.includes("email_not_confirmed")) {
+          errorMessage = "Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada."
+        } else if (err.message.includes("Too many requests") || 
+                   err.message.includes("rate_limit")) {
+          errorMessage = "Demasiados intentos fallidos. Por favor intenta más tarde."
+        } else if (err.message.includes("User not found")) {
+          errorMessage = "No existe una cuenta con este correo electrónico. ¿Quieres registrarte?"
+        } else {
+          errorMessage = err.message
         }
-      } else {
-        setError("Error al iniciar sesión. Por favor intenta de nuevo.")
       }
+
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
   }
 
-  // Manejo de login con Google (botón web)
+  // Manejo de login con Google (actualizado para usar callback)
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true)
     setError("")
 
     try {
-      const userData = await signInWithGoogle()
-      if (userData.subscription === "free" && redirectPath === "/") {
-        router.push("/suscripcion")
-      } else {
-        router.push(redirectPath)
-      }
+      // signInWithGoogle ahora redirige automáticamente a Google OAuth
+      // y luego a /auth/callback, no necesitamos manejar la respuesta aquí
+      await signInWithGoogle()
+      
+      // Este código no se ejecutará porque signInWithGoogle redirige
+      // La lógica de éxito se maneja en /auth/callback
+      
     } catch (err: any) {
-      if (err.code) {
-        switch (err.code) {
-          case "auth/unauthorized-domain":
-            setError(
-              "Este dominio no está autorizado en Firebase. Si estás en un entorno de desarrollo o vista previa, debes agregar este dominio en la consola de Firebase (Authentication > Settings > Authorized domains).",
-            )
-            break
-          case "auth/configuration-not-found":
-            setError(
-              "Error de configuración: La autenticación con Google no está correctamente configurada. Por favor intenta con email y contraseña o contacta al administrador.",
-            )
-            break
-          case "auth/popup-closed-by-user":
-            setError("Inicio de sesión cancelado. La ventana de Google fue cerrada.")
-            break
-          case "auth/popup-blocked":
-            setError(
-              "El navegador bloqueó la ventana emergente. Por favor permite ventanas emergentes para este sitio.",
-            )
-            break
-          case "auth/cancelled-popup-request":
-            setError("Múltiples solicitudes de ventanas emergentes. Por favor intenta de nuevo.")
-            break
-          default:
-            setError(`Error al iniciar sesión con Google (${err.code}). Por favor intenta con email y contraseña.`)
+      console.error("Google login error:", err)
+      
+      let errorMessage = "Error al iniciar sesión con Google. Por favor intenta de nuevo."
+      
+      if (err.message) {
+        if (err.message.includes("invalid_redirect_uri")) {
+          errorMessage = "Error de configuración. Por favor contacta al soporte técnico."
+        } else if (err.message.includes("access_denied")) {
+          errorMessage = "Acceso denegado. Por favor autoriza la aplicación para continuar."
+        } else if (err.message.includes("popup")) {
+          errorMessage = "La ventana de autenticación fue bloqueada. Por favor permite ventanas emergentes."
+        } else if (err.message.includes("network")) {
+          errorMessage = "Error de conexión. Por favor verifica tu conexión a internet."
+        } else {
+          errorMessage = err.message
         }
-      } else {
-        setError(err.message || "Error al iniciar sesión con Google. Por favor intenta con email y contraseña.")
       }
+
+      setError(errorMessage)
     } finally {
       setGoogleLoading(false)
     }
@@ -170,7 +142,7 @@ export default function LoginPage() {
             variant="outline"
             className="w-full"
             onClick={handleGoogleSignIn}
-            disabled={googleLoading}
+            disabled={googleLoading || loading}
           >
             {googleLoading ? (
               "Conectando..."
@@ -202,6 +174,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={loading || googleLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -219,6 +192,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={loading || googleLoading}
                   />
                   <Button
                     type="button"
@@ -226,6 +200,7 @@ export default function LoginPage() {
                     size="icon"
                     className="absolute right-0 top-0 h-full px-3"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading || googleLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -237,7 +212,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || googleLoading}>
                 {loading ? (
                   "Iniciando sesión..."
                 ) : (

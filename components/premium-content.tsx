@@ -8,7 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useCurrentUser, isAdmin } from "@/lib/auth"
-import { getSubscriptionDetails } from "@/lib/subscription"
+import { getActiveSubscription } from "@/lib/subscription"
 
 interface PremiumContentProps {
   children: ReactNode
@@ -27,24 +27,21 @@ export function PremiumContent({ children }: PremiumContentProps) {
         return
       }
 
-      // Verificar si el usuario es admin o tiene suscripción premium en localStorage
+      // Si es admin o tiene suscripción premium en perfil, acceso inmediato
       if (isAdmin(user) || user.subscription === "premium") {
         setHasAccess(true)
         setCheckingSubscription(false)
         return
       }
 
-      // Verificar detalles de suscripción
       try {
-        const subscription = await getSubscriptionDetails(user.id)
+        const subscription = await getActiveSubscription(user.id)
 
-        // Verificar si tiene una suscripción activa y no expirada
         if (subscription && subscription.status === "active") {
-          const endDate = new Date(subscription.endDate)
+          const endDate = new Date(subscription.end_date)
           const now = new Date()
 
           if (endDate > now) {
-            // La suscripción está activa y no ha expirado
             setHasAccess(true)
           } else {
             setHasAccess(false)
@@ -63,17 +60,14 @@ export function PremiumContent({ children }: PremiumContentProps) {
     checkSubscription()
   }, [user])
 
-  // Si está cargando, mostrar un indicador de carga
   if (loading || checkingSubscription) {
     return <div className="animate-pulse bg-muted/50 p-8 rounded-md">Cargando contenido...</div>
   }
 
-  // Si el usuario tiene acceso, mostrar el contenido
   if (hasAccess) {
     return <>{children}</>
   }
 
-  // Si no tiene acceso, mostrar el bloqueo
   return (
     <div className="relative">
       <div className="blur-sm pointer-events-none">{children}</div>

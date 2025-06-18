@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/lib/auth"
 export function SubscriptionBanner() {
   const { user } = useCurrentUser()
 
+  // Si el usuario tiene suscripción premium, no mostrar banner
   if (user?.subscription === "premium") {
     return null
   }

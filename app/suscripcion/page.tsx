@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useCurrentUser } from "@/lib/auth"
-import { subscribeToPlan, getSubscriptionDetails, type SubscriptionDetails } from "@/lib/subscription"
+import { subscribeToPlan, getActiveSubscription, type SubscriptionDetails } from "@/lib/subscription"
 import { SubscriptionInfo } from "@/components/subscription-info"
 
 export default function SuscripcionPage() {
@@ -21,7 +21,7 @@ export default function SuscripcionPage() {
   const [redirectingToLogin, setRedirectingToLogin] = useState(false)
   const [error, setError] = useState("")
   const [subscription, setSubscription] = useState<SubscriptionDetails | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<"paypal" | "credit_card" | "free">("credit_card") // Cambiado a "credit_card" por defecto
+  const [paymentMethod, setPaymentMethod] = useState<"paypal" | "credit_card" | "free" | "stripe">("credit_card")
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false)
 
   useEffect(() => {
@@ -33,14 +33,14 @@ export default function SuscripcionPage() {
 
     // Si hay usuario, cargar detalles de suscripción
     if (user) {
-      getSubscriptionDetails(user.id).then((details) => {
+      getActiveSubscription(user.id).then((details) => {
         setSubscription(details)
 
         // Si la suscripción está cancelada o expirada, actualizar el método de pago
-        if (details && (details.status === "cancelled" || new Date(details.endDate) < new Date())) {
+        if (details && (details.status === "cancelled" || new Date(details.end_date) < new Date())) {
           // Usar el método de pago anterior si no era gratuito
-          if (details.paymentMethod !== "free") {
-            setPaymentMethod(details.paymentMethod)
+          if (details.payment_method !== "free") {
+            setPaymentMethod(details.payment_method)
           }
         }
       })
@@ -69,7 +69,7 @@ export default function SuscripcionPage() {
       // Si el plan es gratuito, forzar el método de pago a "free"
       const finalPaymentMethod = selectedPlan === "free" ? "free" : paymentMethod
 
-      const result = await subscribeToPlan(plan, finalPaymentMethod, user.id)
+      const result = await subscribeToPlan(user.id, plan, finalPaymentMethod)
       setSubscription(result)
       setSubscriptionSuccess(true)
 
@@ -128,7 +128,7 @@ export default function SuscripcionPage() {
 
   // Si el usuario ya tiene una suscripción activa
   if (subscription && subscription.status === "active") {
-    const endDate = new Date(subscription.endDate)
+    const endDate = new Date(subscription.end_date)
     const now = new Date()
     const isExpired = endDate < now
 

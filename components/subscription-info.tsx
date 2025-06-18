@@ -23,16 +23,14 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import type { SubscriptionDetails, SubscriptionPlan } from "@/lib/subscription"
-import { cancelSubscription, changePlan, getSubscriptionDetails } from "@/lib/subscription"
+import { cancelSubscription, updateSubscriptionPlan, getActiveSubscription } from "@/lib/subscription"
 import { useToast } from "@/hooks/use-toast"
 import { useCurrentUser } from "@/lib/auth"
 
-// Modificar la interfaz SubscriptionInfoProps para hacer la prop subscription opcional
 interface SubscriptionInfoProps {
   subscription?: SubscriptionDetails
 }
 
-// Modificar el inicio de la función para manejar el caso en que no haya suscripción
 export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -40,8 +38,8 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
   const [cancelling, setCancelling] = useState(false)
   const [changingPlan, setChangingPlan] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(subscription?.plan || "free")
-  const [paymentMethod, setPaymentMethod] = useState<"paypal" | "credit_card" | "free">(
-    subscription?.paymentMethod === "free" ? "free" : "credit_card",
+  const [paymentMethod, setPaymentMethod] = useState<"paypal" | "credit_card" | "free" | "stripe">(
+    subscription?.payment_method === "free" ? "free" : "credit_card",
   )
   const [error, setError] = useState("")
   const [isChangePlanOpen, setIsChangePlanOpen] = useState(false)
@@ -49,7 +47,6 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionDetails | null>(subscription || null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Cargar los datos de suscripción si no se proporcionaron como prop
   useEffect(() => {
     async function loadSubscription() {
       if (!user || subscription) return
@@ -57,7 +54,7 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
       try {
         setLoading(true)
         setLoadError(null)
-        const details = await getSubscriptionDetails(user.id)
+        const details = await getActiveSubscription(user.id)
         setSubscriptionData(details)
       } catch (error: any) {
         console.error("Error al cargar la suscripción:", error)
@@ -70,7 +67,6 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
     loadSubscription()
   }, [user, subscription])
 
-  // Si está cargando, mostrar un estado de carga
   if (loading) {
     return (
       <Card>
@@ -85,7 +81,6 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
     )
   }
 
-  // Si hay un error al cargar los datos
   if (loadError) {
     return (
       <Card>
@@ -102,7 +97,6 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
     )
   }
 
-  // Si no hay datos de suscripción
   if (!subscriptionData) {
     return (
       <Card>
@@ -129,11 +123,10 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
     )
   }
 
-  const startDate = new Date(subscriptionData.startDate)
-  const endDate = new Date(subscriptionData.endDate)
+  const startDate = new Date(subscriptionData.start_date)
+  const endDate = new Date(subscriptionData.end_date)
   const isExpired = isPast(endDate)
 
-  // El resto del código permanece igual...
   const handleCancelSubscription = async () => {
     if (!confirm("¿Estás seguro de que deseas cancelar tu suscripción?")) {
       return
@@ -141,13 +134,12 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
 
     setCancelling(true)
     try {
-      await cancelSubscription(subscriptionData.id)
+      await cancelSubscription(subscriptionData.user_id)
       toast({
         title: "Suscripción cancelada",
         description: "Tu suscripción ha sido cancelada exitosamente.",
       })
 
-      // Redirigir a la página de suscripción después de cancelar
       router.push("/suscripcion")
     } catch (error) {
       toast({
@@ -165,11 +157,9 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
     setError("")
 
     try {
-      if (!user) {
-        throw new Error("User not found.")
-      }
+      if (!user) throw new Error("Usuario no encontrado.")
 
-      await changePlan(user.id, selectedPlan, paymentMethod)
+      await updateSubscriptionPlan(user.id, selectedPlan, paymentMethod)
       toast({
         title: "Plan actualizado",
         description: "Tu plan ha sido actualizado exitosamente.",
@@ -198,8 +188,8 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
                 {subscriptionData.plan === "premium"
                   ? "Premium"
                   : subscriptionData.plan === "basic"
-                    ? "Básico"
-                    : "Gratuito"}
+                  ? "Básico"
+                  : "Gratuito"}
               </span>
             </div>
             <div className="text-sm text-muted-foreground">ID: {subscriptionData.id}</div>
@@ -225,15 +215,15 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
               <CreditCard className="h-4 w-4 text-muted-foreground" />
               <span>
                 Método de pago:{" "}
-                {subscriptionData.paymentMethod === "paypal"
+                {subscriptionData.payment_method === "paypal"
                   ? "PayPal"
-                  : subscriptionData.paymentMethod === "credit_card"
-                    ? "Tarjeta de crédito"
-                    : "Prueba gratuita"}
+                  : subscriptionData.payment_method === "credit_card"
+                  ? "Tarjeta de crédito"
+                  : "Prueba gratuita"}
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              {subscriptionData.autoRenew ? (
+              {subscriptionData.auto_renew ? (
                 <>
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <span>Renovación automática activada</span>

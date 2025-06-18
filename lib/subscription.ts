@@ -1,165 +1,220 @@
 "use client"
 
+import { supabase } from "./supabaseClient"
+import type { User } from "./types"
+
 // Tipos de suscripción
 export type SubscriptionPlan = "free" | "basic" | "premium"
+export type PaymentMethod = "paypal" | "credit_card" | "free" | "stripe"
+export type SubscriptionStatus = "active" | "cancelled" | "expired" | "pending"
 
 export interface SubscriptionDetails {
   id: string
+  user_id: string
   plan: SubscriptionPlan
-  startDate: string
-  endDate: string
-  autoRenew: boolean
-  paymentMethod: "paypal" | "credit_card" | "free"
-  status: "active" | "cancelled" | "expired"
+  start_date: string
+  end_date: string
+  auto_renew: boolean
+  payment_method: PaymentMethod
+  status: SubscriptionStatus
+  last_payment_date?: string | null
+  next_payment_date?: string | null
+  stripe_subscription_id?: string | null
 }
 
-// Función para suscribirse a un plan
 export async function subscribeToPlan(
-  plan: SubscriptionPlan,
-  paymentMethod: "paypal" | "credit_card" | "free",
   userId: string,
+  plan: SubscriptionPlan,
+  paymentMethod: PaymentMethod
 ): Promise<SubscriptionDetails> {
-  // Simula una llamada a API de procesamiento de pago y suscripción
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        // En una aplicación real, esto procesaría el pago y actualizaría la suscripción en la base de datos
-        const currentUser = localStorage.getItem("currentUser")
+  try {
+    // Validar parámetros
+    if (!userId || !plan || !paymentMethod) {
+      throw new Error("Parámetros inválidos para crear suscripción")
+    }
 
-        if (currentUser) {
-          const user = JSON.parse(currentUser)
-          user.subscription = plan
-          localStorage.setItem("currentUser", JSON.stringify(user))
+    // 1. Validar que no exista una suscripción activa para el usuario
+    const { data: activeSubscription, error: activeError } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .single()
 
-          // Crear detalles de suscripción
-          const now = new Date()
-          const endDate = new Date()
+    if (activeError && activeError.code !== "PGRST116") { // PGRST116 = no rows found, que es válido aquí
+      console.error("Error al verificar suscripción activa:", activeError)
+      throw new Error("Error al verificar suscripción activa")
+    }
 
-          // Establecer la duración según el tipo de plan y método de pago
-          if (paymentMethod === "free") {
-            // La prueba gratuita dura solo 1 día
-            endDate.setDate(endDate.getDate() + 1)
-          } else if (plan === "premium") {
-            // Plan premium dura 1 mes
-            endDate.setMonth(endDate.getMonth() + 1)
-          } else {
-            // Plan básico dura 1 año
-            endDate.setMonth(endDate.getMonth() + 12)
-          }
+    if (activeSubscription) {
+      throw new Error("El usuario ya tiene una suscripción activa")
+    }
 
-          const subscriptionDetails: SubscriptionDetails = {
-            id: `sub_${Math.random().toString(36).substring(2, 15)}`,
-            plan,
-            startDate: now.toISOString(),
-            endDate: endDate.toISOString(),
-            autoRenew: paymentMethod !== "free", // Las pruebas gratuitas no se renuevan automáticamente
-            paymentMethod,
-            status: "active",
-          }
+    // 2. Validar método de pago coherente con el plan
+    if (plan !== "free" && paymentMethod === "free") {
+      throw new Error("El método de pago debe ser válido para planes de pago")
+    }
 
-          // Guardar detalles de suscripción
-          localStorage.setItem(`subscription_${userId}`, JSON.stringify(subscriptionDetails))
+    const now = new Date().toISOString()
+    const endDate = calculateEndDate(plan, paymentMethod)
 
-          resolve(subscriptionDetails)
-        } else {
-          reject(new Error("Usuario no encontrado"))
-        }
-      } catch (error) {
-        reject(error)
-      }
-    }, 2000)
-  })
+    // 3. Crear la suscripción
+    const { data: subscription, error } = await supabase
+      .from("subscriptions")
+      .insert({
+        user_id: userId,
+        plan,
+        start_date: now,
+        end_date: endDate,
+        auto_renew: paymentMethod !== "free",
+        payment_method: paymentMethod,
+        status: "active"
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // 4. Actualizar perfil del usuario
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ subscription: plan })
+      .eq("id", userId)
+
+    if (profileError) {
+      console.error("Error al actualizar perfil:", profileError)
+      // Revertir la suscripción si no se puede actualizar el perfil
+      await supabase.from("subscriptions").delete().eq("id", subscription.id)
+      throw new Error("No se pudo actualizar el perfil del usuario")
+    }
+
+    return subscription
+  } catch (error) {
+    console.error("Error en subscribeToPlan:", error)
+    throw error instanceof Error ? error : new Error("Error al crear suscripción")
+  }
 }
 
-// Función para obtener los detalles de la suscripción
-export async function getSubscriptionDetails(userId: string): Promise<SubscriptionDetails | null> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const subscriptionData = localStorage.getItem(`subscription_${userId}`)
-      if (subscriptionData) {
-        resolve(JSON.parse(subscriptionData))
-      } else {
-        resolve(null)
-      }
-    }, 500)
-  })
+/**
+ * Obtiene la suscripción activa de un usuario
+ */
+export async function getActiveSubscription(userId: string): Promise<SubscriptionDetails | null> {
+  try {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .gt("end_date", new Date().toISOString())
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error("Error en getActiveSubscription:", error)
+    return null
+  }
 }
 
-// Función para cancelar una suscripción
+/**
+ * Cancela una suscripción activa
+ */
 export async function cancelSubscription(userId: string): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        const subscriptionData = localStorage.getItem(`subscription_${userId}`)
-        if (subscriptionData) {
-          const subscription = JSON.parse(subscriptionData)
-          subscription.status = "cancelled"
-          subscription.autoRenew = false
-          localStorage.setItem(`subscription_${userId}`, JSON.stringify(subscription))
-          resolve(true)
-        } else {
-          reject(new Error("Suscripción no encontrada"))
-        }
-      } catch (error) {
-        reject(error)
-      }
-    }, 1000)
-  })
+  try {
+    // Obtener suscripción activa
+    const activeSub = await getActiveSubscription(userId)
+    if (!activeSub) throw new Error("No se encontró suscripción activa")
+
+    // Actualizar suscripción
+    const { error: subError } = await supabase
+      .from("subscriptions")
+      .update({
+        status: "cancelled",
+        auto_renew: false,
+        end_date: new Date().toISOString() // Cancela inmediatamente
+      })
+      .eq("id", activeSub.id)
+
+    if (subError) throw subError
+
+    // Actualizar perfil del usuario a free
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ subscription: "free" })
+      .eq("id", userId)
+
+    if (profileError) {
+      console.error("Error al actualizar perfil:", profileError)
+      // No revertimos la cancelación aunque falle la actualización del perfil
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error en cancelSubscription:", error)
+    throw error instanceof Error ? error : new Error("Error al cancelar suscripción")
+  }
 }
 
-// Función para cambiar de plan de suscripción
-export async function changePlan(
+/**
+ * Actualiza el plan de suscripción de un usuario
+ */
+export async function updateSubscriptionPlan(
   userId: string,
   newPlan: SubscriptionPlan,
-  paymentMethod: "paypal" | "credit_card" | "free",
+  paymentMethod: PaymentMethod
 ): Promise<SubscriptionDetails> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        const subscriptionData = localStorage.getItem(`subscription_${userId}`)
-        if (subscriptionData) {
-          // Obtener la suscripción actual
-          const subscription: SubscriptionDetails = JSON.parse(subscriptionData)
+  try {
+    // Cancelar suscripción actual si existe
+    await cancelSubscription(userId)
 
-          // Actualizar el plan
-          subscription.plan = newPlan
+    // Crear nueva suscripción
+    return await subscribeToPlan(userId, newPlan, paymentMethod)
+  } catch (error) {
+    console.error("Error en updateSubscriptionPlan:", error)
+    throw error instanceof Error ? error : new Error("Error al actualizar suscripción")
+  }
+}
 
-          // Actualizar la fecha de fin según el nuevo plan
-          const endDate = new Date()
-          if (paymentMethod === "free") {
-            // La prueba gratuita dura solo 1 día
-            endDate.setDate(endDate.getDate() + 1)
-          } else if (newPlan === "premium") {
-            // Plan premium dura 1 mes
-            endDate.setMonth(endDate.getMonth() + 1)
-          } else {
-            // Plan básico dura 1 año
-            endDate.setMonth(endDate.getMonth() + 12)
-          }
+/**
+ * Verifica si un usuario tiene una suscripción activa
+ */
+export async function hasActiveSubscription(userId: string): Promise<boolean> {
+  const subscription = await getActiveSubscription(userId)
+  return !!subscription
+}
 
-          subscription.endDate = endDate.toISOString()
-          subscription.paymentMethod = paymentMethod
-          subscription.autoRenew = paymentMethod !== "free"
-          subscription.status = "active"
+/**
+ * Obtiene el plan actual de un usuario desde su perfil
+ */
+export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("subscription")
+      .eq("id", userId)
+      .single()
 
-          // Actualizar en localStorage
-          localStorage.setItem(`subscription_${userId}`, JSON.stringify(subscription))
+    if (error || !data) throw error || new Error("Perfil no encontrado")
+    return data.subscription as SubscriptionPlan || "free"
+  } catch (error) {
+    console.error("Error en getUserPlan:", error)
+    return "free"
+  }
+}
 
-          // Actualizar también el usuario
-          const currentUser = localStorage.getItem("currentUser")
-          if (currentUser) {
-            const user = JSON.parse(currentUser)
-            user.subscription = newPlan
-            localStorage.setItem("currentUser", JSON.stringify(user))
-          }
+// Función auxiliar para calcular fecha de finalización
+function calculateEndDate(plan: SubscriptionPlan, paymentMethod: PaymentMethod): string {
+  const endDate = new Date()
 
-          resolve(subscription)
-        } else {
-          reject(new Error("Suscripción no encontrada"))
-        }
-      } catch (error) {
-        reject(error)
-      }
-    }, 1000)
-  })
+  if (paymentMethod === "free") {
+    endDate.setDate(endDate.getDate() + 1) // 1 día para pruebas gratuitas
+  } else if (plan === "premium") {
+    endDate.setMonth(endDate.getMonth() + 1) // 1 mes para premium
+  } else {
+    endDate.setMonth(endDate.getMonth() + 12) // 1 año para básico
+  }
+
+  return endDate.toISOString()
 }
