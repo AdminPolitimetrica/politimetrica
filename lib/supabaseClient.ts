@@ -42,6 +42,18 @@ interface PartyData {
   name?: string | null
 }
 
+interface SaveContactMessageData {
+  name: string
+  email: string
+  subject: string
+  message: string
+  date?: string
+  status?: string
+  user_id: string // nuevo campo obligatorio
+  politician: PoliticianData
+  party: PartyData | null
+}
+
 /**
  * Función para convertir valores a número de forma segura
  */
@@ -63,30 +75,25 @@ const cleanString = (value: any): string | null => {
 /**
  * Guarda un mensaje de contacto junto con sugerencias de políticos y partidos
  */
-export async function saveContactMessageWithSuggestions(data: {
-  name: string
-  email: string
-  subject: string
-  message: string
-  date?: string
-  status?: string
-  politician: PoliticianData
-  party: PartyData | null
-}) {
+export async function saveContactMessageWithSuggestions(data: SaveContactMessageData) {
   try {
     // Validación básica de campos requeridos
     if (!data.name?.trim() || !data.email?.trim() || !data.subject?.trim() || !data.message?.trim()) {
       throw new Error('Todos los campos principales son requeridos')
     }
+    if (!data.user_id) {
+      throw new Error('El usuario debe estar autenticado para enviar un mensaje')
+    }
 
-    // 1. Insertar mensaje principal
+    // 1. Insertar mensaje principal con user_id
     const messageInsert = {
       name: data.name.trim(),
       email: data.email.trim(),
       subject: data.subject.trim(),
       message: data.message.trim(),
       date: data.date || new Date().toISOString(),
-      status: data.status || 'pendiente'
+      status: data.status || 'pendiente',
+      user_id: data.user_id,
     }
 
     const { data: messageData, error: messageError } = await supabase
@@ -172,12 +179,10 @@ export async function saveContactMessageWithSuggestions(data: {
   } catch (error: unknown) {
     console.error('Error completo en saveContactMessageWithSuggestions:', error)
     
-    // Convertir error desconocido a Error
     const normalizedError = error instanceof Error 
       ? error 
       : new Error('Error desconocido al guardar el mensaje')
 
-    // Log adicional para diagnóstico
     if (error instanceof Error) {
       console.error('Stack trace:', error.stack)
     }
