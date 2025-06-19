@@ -35,6 +35,8 @@ interface PoliticianData {
   biography?: string | null
   region_id?: string | null
   country_id?: string | number | null
+  cedula?: string | null
+  cedula_pdf_url?: string | null
 }
 
 interface PartyData {
@@ -45,12 +47,14 @@ interface PartyData {
 interface SaveContactMessageData {
   name: string
   email: string
+  cedula: string
+  cedula_pdf_url: string
   subject: string
   message: string
   date?: string
   status?: string
   user_id: string // nuevo campo obligatorio
-  politician: PoliticianData
+  politician: PoliticianData | null
   party: PartyData | null
 }
 
@@ -84,11 +88,16 @@ export async function saveContactMessageWithSuggestions(data: SaveContactMessage
     if (!data.user_id) {
       throw new Error('El usuario debe estar autenticado para enviar un mensaje')
     }
+    if (!data.cedula?.trim() || !data.cedula_pdf_url?.trim()) {
+      throw new Error('La cédula y la copia de la cédula son obligatorias')
+    }
 
-    // 1. Insertar mensaje principal con user_id
+    // 1. Insertar mensaje principal con user_id y campos nuevos
     const messageInsert = {
       name: data.name.trim(),
       email: data.email.trim(),
+      cedula: data.cedula.trim(),
+      cedula_pdf_url: data.cedula_pdf_url.trim(),
       subject: data.subject.trim(),
       message: data.message.trim(),
       date: data.date || new Date().toISOString(),
@@ -116,6 +125,10 @@ export async function saveContactMessageWithSuggestions(data: SaveContactMessage
 
     // 2. Insertar sugerencia de político (si existe nombre)
     if (data.politician?.name?.trim()) {
+      if (!data.politician.cedula?.trim() || !data.politician.cedula_pdf_url?.trim()) {
+        throw new Error('La cédula y la copia de la cédula del político son obligatorias')
+      }
+
       const politicianToInsert = {
         name: data.politician.name.trim(),
         contact_message_id: contactMessageId,
@@ -130,7 +143,9 @@ export async function saveContactMessageWithSuggestions(data: SaveContactMessage
         age: safeNumber(data.politician.age),
         approval_rating: safeNumber(data.politician.approval_rating),
         proposals_fulfilled: safeNumber(data.politician.proposals_fulfilled),
-        country_id: safeNumber(data.politician.country_id)
+        country_id: safeNumber(data.politician.country_id),
+        cedula: data.politician.cedula.trim(),
+        cedula_pdf_url: data.politician.cedula_pdf_url.trim(),
       }
 
       const { error: polError } = await supabase

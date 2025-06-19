@@ -28,6 +28,9 @@ interface Politician {
   biography: string
   region_id: string
   country_id: string
+  cedula: string
+  cedulaPdfFile: File | null
+  cedula_pdf_url: string | null
 }
 
 interface Party {
@@ -38,6 +41,9 @@ interface Party {
 interface FormData {
   name: string
   email: string
+  cedula: string
+  cedulaPdfFile: File | null
+  cedula_pdf_url: string | null
   subject: string
   message: string
   politician: Politician
@@ -56,6 +62,9 @@ export function ContactForm() {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
+    cedula: "",
+    cedulaPdfFile: null,
+    cedula_pdf_url: null,
     subject: "",
     message: "",
     politician: {
@@ -73,6 +82,9 @@ export function ContactForm() {
       biography: "",
       region_id: "",
       country_id: "",
+      cedula: "",
+      cedulaPdfFile: null,
+      cedula_pdf_url: null,
     },
     party: {
       id: "",
@@ -120,6 +132,52 @@ export function ContactForm() {
     }
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFormData(prev => ({ ...prev, cedulaPdfFile: e.target.files![0] }))
+    }
+  }
+
+  const handlePoliticianFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        politician: {
+          ...prev.politician,
+          cedulaPdfFile: e.target.files![0],
+        },
+      }))
+    }
+  }
+
+  async function uploadFile(file: File, userId: string, prefix: string): Promise<string> {
+    const timestamp = Date.now()
+    const fileExt = file.name.split('.').pop()
+    const filePath = `${prefix}/${userId}/${timestamp}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from("cedulas")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      })
+
+    if (uploadError) {
+      throw new Error(`Error subiendo archivo: ${uploadError.message}`)
+    }
+
+    const { data, error: urlError } = await supabase.storage
+      .from("cedulas")
+      .createSignedUrl(filePath, 60 * 60 * 24) // URL válida 24 horas
+
+    if (urlError) {
+      throw new Error(`Error generando URL firmada: ${urlError.message}`)
+    }
+
+    return data.signedUrl
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -132,68 +190,86 @@ export function ContactForm() {
       return
     }
 
-    setIsSubmitting(true)
-
-    const dataToSend = {
-      name: formData.name,
-      email: formData.email,
-      subject: formData.subject,
-      message: formData.message,
-      date: new Date().toISOString(),
-      status: "pendiente",
-      user_id: user.id,
-      politician: showPoliticianForm
-        ? {
-            id: formData.politician.id || "",
-            name: formData.politician.name,
-            image: formData.politician.image,
-            party_id: formData.politician.party_id,
-            current_position: formData.politician.current_position,
-            experience: formData.politician.experience ? Number(formData.politician.experience) : null,
-            proposals_fulfilled: formData.politician.proposals_fulfilled
-              ? Number(formData.politician.proposals_fulfilled)
-              : null,
-            approval_rating: formData.politician.approval_rating ? Number(formData.politician.approval_rating) : null,
-            age: formData.politician.age ? Number(formData.politician.age) : null,
-            birthplace: formData.politician.birthplace,
-            career_start: formData.politician.career_start,
-            biography: formData.politician.biography,
-            region_id: formData.politician.region_id,
-            country_id: formData.politician.country_id ? Number(formData.politician.country_id) : null,
-          }
-        : {
-            id: "",
-            name: "",
-            image: "",
-            party_id: "",
-            current_position: "",
-            experience: null,
-            proposals_fulfilled: null,
-            approval_rating: null,
-            age: null,
-            birthplace: "",
-            career_start: "",
-            biography: "",
-            region_id: "",
-            country_id: null,
-          },
-      party: showPartyForm
-        ? {
-            id: formData.party.id,
-            name: formData.party.name,
-          }
-        : null,
+    if (!formData.cedula || !formData.cedulaPdfFile) {
+      toast({
+        title: "Datos requeridos",
+        description: "Debes ingresar tu cédula y subir la copia en PDF.",
+        variant: "destructive",
+      })
+      return
     }
 
+    if (showPoliticianForm && (!formData.politician.cedula || !formData.politician.cedulaPdfFile)) {
+      toast({
+        title: "Datos requeridos",
+        description: "Debes ingresar la cédula y subir la copia en PDF del político sugerido.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+
     try {
+      // Subir archivos y obtener URLs firmadas
+      const cedulaPdfUrl = await uploadFile(formData.cedulaPdfFile, user.id, "cedula_sugerente")
+      let politicianCedulaPdfUrl: string | null = null
+      if (showPoliticianForm && formData.politician.cedulaPdfFile) {
+        politicianCedulaPdfUrl = await uploadFile(formData.politician.cedulaPdfFile, user.id, "cedula_politico")
+      }
+
+      // Preparar datos para enviar
+      const dataToSend = {
+        name: formData.name,
+        email: formData.email,
+        cedula: formData.cedula,
+        cedula_pdf_url: cedulaPdfUrl,
+        subject: formData.subject,
+        message: formData.message,
+        date: new Date().toISOString(),
+        status: "pendiente",
+        user_id: user.id,
+        politician: showPoliticianForm
+          ? {
+              id: formData.politician.id || "",
+              name: formData.politician.name,
+              image: formData.politician.image,
+              party_id: formData.politician.party_id,
+              current_position: formData.politician.current_position,
+              experience: formData.politician.experience ? Number(formData.politician.experience) : null,
+              proposals_fulfilled: formData.politician.proposals_fulfilled
+                ? Number(formData.politician.proposals_fulfilled)
+                : null,
+              approval_rating: formData.politician.approval_rating ? Number(formData.politician.approval_rating) : null,
+              age: formData.politician.age ? Number(formData.politician.age) : null,
+              birthplace: formData.politician.birthplace,
+              career_start: formData.politician.career_start,
+              biography: formData.politician.biography,
+              region_id: formData.politician.region_id,
+              country_id: formData.politician.country_id ? Number(formData.politician.country_id) : null,
+              cedula: formData.politician.cedula,
+              cedula_pdf_url: politicianCedulaPdfUrl,
+            }
+          : null,
+        party: showPartyForm
+          ? {
+              id: formData.party.id,
+              name: formData.party.name,
+            }
+          : null,
+      }
+
       await saveContactMessageWithSuggestions(dataToSend)
 
       setShowConfirmation(true)
 
-      // Resetea el formulario después de mostrar confirmación
+      // Resetear formulario
       setFormData({
         name: "",
         email: "",
+        cedula: "",
+        cedulaPdfFile: null,
+        cedula_pdf_url: null,
         subject: "",
         message: "",
         politician: {
@@ -211,6 +287,9 @@ export function ContactForm() {
           biography: "",
           region_id: "",
           country_id: "",
+          cedula: "",
+          cedulaPdfFile: null,
+          cedula_pdf_url: null,
         },
         party: {
           id: "",
@@ -299,6 +378,30 @@ export function ContactForm() {
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cedula">Cédula *</Label>
+            <Input
+              id="cedula"
+              name="cedula"
+              placeholder="0401862057"
+              value={formData.cedula}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cedulaPdf">Copia de la cédula (PDF) *</Label>
+            <Input
+              id="cedulaPdf"
+              name="cedulaPdf"
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              required
+            />
           </div>
 
           <div className="space-y-2">
@@ -436,6 +539,30 @@ export function ContactForm() {
                   onChange={(e) => handleChange(e, "politician")}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="politician-cedula">Cédula del político *</Label>
+              <Input
+                id="politician-cedula"
+                name="cedula"
+                placeholder="0401862057"
+                value={formData.politician.cedula}
+                onChange={(e) => handleChange(e, "politician")}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="politician-cedula-pdf">Copia de la cédula del político (PDF) *</Label>
+              <Input
+                id="politician-cedula-pdf"
+                name="politicianCedulaPdf"
+                type="file"
+                accept="application/pdf"
+                onChange={handlePoliticianFileChange}
+                required
+              />
             </div>
 
             <div className="space-y-2">
